@@ -1,0 +1,54 @@
+// Test Case Title: INIT - A_rwnd & change of state of association
+// Test Case Id: T002
+// RFC ref: 3.3.2 (INIT) (1) - Version 17
+//
+// A_rwnd: value MUST NOT be smaller than 1500.
+// A receiver of an INIT chunk with the a_rwnd value set to a value smaller than 1500 MUST discard the packet 
+// and SHOULD send a packet in response containing an ABORT chunk and using the Initiate Tag as the Verification Tag, 
+// and MUST NOT change the state of any existing association.
+
+--tolerance_usecs=75000
+
+#ifdef FreeBSD
+ 0.0 `kldload -n sctp`
++0.0 `sysctl -w net.inet.sctp.ecn_enable=0`
++0.0 `sysctl -w net.inet.sctp.pr_enable=0`
++0.0 `sysctl -w net.inet.sctp.asconf_enable=0`
++0.0 `sysctl -w net.inet.sctp.auth_enable=0`
++0.0 `sysctl -w net.inet.sctp.reconfig_enable=0`
++0.0 `sysctl -w net.inet.sctp.nrsack_enable=0`
++0.0 `sysctl -w net.inet.sctp.pktdrop_enable=0`
+#endif
+#ifdef Linux
+ 0.0 `modprobe sctp`
++0.0 `sysctl -w net.sctp.ecn_enable=0`
++0.0 `sysctl -w net.sctp.prsctp_enable=0`
+#endif
+
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 listen(3, 1) = 0
++0.0 < sctp: INIT[flgs=0, tag=1, a_rwnd=1500, os=1, is=1, tsn=1]
++0.0 > sctp: INIT_ACK[flgs=0, tag=..., a_rwnd=..., os=..., is=..., tsn=3,
+                      STATE_COOKIE[len=..., val=...]]
++0.0 < sctp: COOKIE_ECHO[flgs=0, len=..., val=...]
++0.0 > sctp: COOKIE_ACK[flgs=0]
++0.0 accept(3, ..., ...) = 4
++0.5 < sctp: HEARTBEAT[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]]
++0.0 > sctp: HEARTBEAT_ACK[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]]
+
+// Test ARWND < 1500; (discard the packet and send ABORT as response with Initiate tag as Verification Tag, Existing association MUST not be affected).
++0.1 < sctp: INIT[flgs=0, tag=2, a_rwnd=1400, os=1, is=1, tsn=0]
++0.0 > sctp(tag=2): ABORT[flgs=0, INVALID_MANDATORY_PARAMETER[]]
++0.0 getsockopt(4, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
++0.0 < sctp: HEARTBEAT[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]]
++0.0 > sctp: HEARTBEAT_ACK[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]]
+
+// Tear down the association
++0.0 close(3) = 0
++0.0 close(4) = 0
++0.0 > sctp: SHUTDOWN[flgs=0, cum_tsn=0]
++0.0 < sctp: SHUTDOWN_ACK[flgs=0]
++0.0 > sctp: SHUTDOWN_COMPLETE[flgs=0]
+
+

@@ -1,0 +1,97 @@
+// Test Case Title: INIT ACK -  Outbound & Inbound Stream
+// Test Case ID: T003_3 
+// RFC Ref: 3.3.3. - Initiation Acknowledgement (INIT ACK) (2) - (Version 14)
+//
+//  Initiate Tag: If an endpoint in the COOKIE-WAIT state receives an INIT ACK chunk with the OS value set to 0,
+//  it MUST destroy the TCB and SHOULD send an ABORT chunk.  
+//  If such an INIT-ACK chunk is received in any state other than CLOSED or COOKIE-WAIT, it SHOULD be discarded	silently
+//
+--tolerance_usecs=100000
+
+#ifdef FreeBSD
+ 0.0 `kldload -n sctp`
++0.0 `sysctl -w net.inet.sctp.ecn_enable=0`
++0.0 `sysctl -w net.inet.sctp.pr_enable=0`
++0.0 `sysctl -w net.inet.sctp.asconf_enable=0`
++0.0 `sysctl -w net.inet.sctp.auth_enable=0`
++0.0 `sysctl -w net.inet.sctp.reconfig_enable=0`
++0.0 `sysctl -w net.inet.sctp.nrsack_enable=0`
++0.0 `sysctl -w net.inet.sctp.pktdrop_enable=0`
+#endif
+#ifdef Linux
+ 0.0 `modprobe sctp`
++0.0 `sysctl -w net.sctp.ecn_enable=0`
++0.0 `sysctl -w net.sctp.prsctp_enable=0`
+#endif
+
+// COOKIE-WAIT state: Test OS = 0
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 fcntl(3, F_GETFL) = 0x2 (flags O_RDWR)
++0.0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
++0.0 connect(3, ..., ...) = -1 EINPROGRESS (Operation now in progress)
++0.0 > sctp: INIT[flgs=0, tag=1, a_rwnd=..., os=..., is=..., tsn=0,
+                  SUPPORTED_ADDRESS_TYPES[types=...]]
++0.0 < sctp: INIT_ACK[flgs=0, tag=2, a_rwnd=1500, os=0, is=1, tsn=3,
+                      STATE_COOKIE[len=4, val=...]]
++0.0 > sctp: ABORT[flgs=0, INVALID_MANDATORY_PARAMETER[]]
+#ifdef FreeBSD
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [ECONNABORTED], [4]) = 0
+#endif
+#ifdef Linux
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [ECONNREFUSED], [4]) = 0
+#endif
++0.0 close(3) = 0
+
+// COOKIE-WAIT state: Test IS = 0
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 fcntl(3, F_GETFL) = 0x2 (flags O_RDWR)
++0.0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
++0.0 connect(3, ..., ...) = -1 EINPROGRESS (Operation now in progress)
++0.0 > sctp: INIT[flgs=0, tag=1, a_rwnd=..., os=..., is=..., tsn=0,
+                  SUPPORTED_ADDRESS_TYPES[types=...]]
++0.0 < sctp: INIT_ACK[flgs=0, tag=3, a_rwnd=1500, os=1, is=0, tsn=3,
+                      STATE_COOKIE[len=4, val=...]]
++0.0 > sctp: ABORT[flgs=0, INVALID_MANDATORY_PARAMETER[]]
+#ifdef FreeBSD
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [ECONNABORTED], [4]) = 0
+#endif
+#ifdef Linux
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [ECONNREFUSED], [4]) = 0
+#endif
++0.0 close(3) = 0
+
+//ESTABLISHED state
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 fcntl(3, F_GETFL) = 0x2 (flags O_RDWR)
++0.0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
++0.0 connect(3, ..., ...) = -1 EINPROGRESS (Operation now in progress)
++0.0 > sctp: INIT[flgs=0, tag=1, a_rwnd=..., os=..., is=..., tsn=0,
+                  SUPPORTED_ADDRESS_TYPES[types=...]]
++0.0 < sctp: INIT_ACK[flgs=0, tag=4, a_rwnd=1500, os=1, is=1, tsn=3,
+                      STATE_COOKIE[len=4, val=...]]
++0.0 > sctp: COOKIE_ECHO[flgs=0, len=4, val=...]
++0.0 < sctp: COOKIE_ACK[flgs=0]
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
+
+// ESTABLISHED state: Test OS = 0 
++0.0 < sctp: INIT_ACK[flgs=0, tag=5, a_rwnd=1500, os=0, is=1, tsn=3,
+                      STATE_COOKIE[len=4, val=...]]
++0.0 < sctp: HEARTBEAT[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]]
++0.0 > sctp: HEARTBEAT_ACK[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]]
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
+
+// ESTABLISHED state: Test IS = 0
++0.0 < sctp: INIT_ACK[flgs=0, tag=6, a_rwnd=1500, os=1, is=0, tsn=3,
+                      STATE_COOKIE[len=4, val=...]]
++0.0 < sctp: HEARTBEAT[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]]
++0.0 > sctp: HEARTBEAT_ACK[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]]
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
+
++0.0 close(3) = 0
+
++0.0 > sctp: SHUTDOWN[flgs=0, cum_tsn=2]
++0.0 < sctp: SHUTDOWN_ACK[flgs=0]
++0.0 > sctp: SHUTDOWN_COMPLETE[flgs=0]

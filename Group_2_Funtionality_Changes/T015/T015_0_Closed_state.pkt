@@ -1,0 +1,41 @@
+// Test Case Title: INIT - HOST NAME PARAMETER
+// Test Case ID: T015_0 (CLOSED State)
+// RFC ref: 3.3.2 - Initiation (INIT) (1) - (Version 2)
+//
+// INIT chunk MUST NOT contain 'Host Name Parameter' , if contain receiver must send an ABORT with 'unresolvable address'
+// Usage of Host Name parameter is 'deprecated'
+//
+
+--tolerance_usecs=75000
+
+#ifdef FreeBSD
+ 0.0 `kldload -n sctp`
++0.0 `sysctl -w net.inet.sctp.ecn_enable=0`
++0.0 `sysctl -w net.inet.sctp.pr_enable=0`
++0.0 `sysctl -w net.inet.sctp.asconf_enable=0`
++0.0 `sysctl -w net.inet.sctp.auth_enable=0`
++0.0 `sysctl -w net.inet.sctp.reconfig_enable=0`
++0.0 `sysctl -w net.inet.sctp.nrsack_enable=0`
++0.0 `sysctl -w net.inet.sctp.pktdrop_enable=0`
+#endif
+#ifdef Linux
+ 0.0 `modprobe sctp`
++0.0 `sysctl -w net.sctp.ecn_enable=0`
++0.0 `sysctl -w net.sctp.prsctp_enable=0`
+#endif
+
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 listen(3, 1) = 0
+
+// Test in CLOSED state for a listener:
+
+// Test: HOST NAME Parameter, if contains send ABORT with 'unresolvable address'.
++0.0 < sctp: INIT[flgs=0, tag=1, a_rwnd=1500, os=1, is=1, tsn=0,
+                  HOSTNAME_ADDRESS[addr="www.nokia.com"]]
++0.0 > sctp: ABORT[flgs=0x00, UNRESOLVABLE_ADDRESS[param=HOSTNAME_ADDRESS[addr="www.nokia.com"]]] 
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
+
+//
+// Tear down the association
++0.0 close(3) = 0

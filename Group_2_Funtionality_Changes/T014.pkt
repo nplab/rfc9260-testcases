@@ -1,0 +1,60 @@
+// Test Case Title: Payload DATA - I bit
+// Test Case ID: T014
+// RFC ref: 3.3.1. - Payload Data (DATA) (0) (Version 2)
+//
+// I Bit (1 bit) set by the sender, When the sender can benefit from the corresponding SACK chunk being sent back without any delay. 
+//
+
+--tolerance_usecs=75000
+
+#ifdef FreeBSD
+ 0.0 `kldload -n sctp`
++0.0 `sysctl -w net.inet.sctp.ecn_enable=0`
++0.0 `sysctl -w net.inet.sctp.pr_enable=0`
++0.0 `sysctl -w net.inet.sctp.asconf_enable=0`
++0.0 `sysctl -w net.inet.sctp.auth_enable=0`
++0.0 `sysctl -w net.inet.sctp.reconfig_enable=0`
++0.0 `sysctl -w net.inet.sctp.nrsack_enable=0`
++0.0 `sysctl -w net.inet.sctp.pktdrop_enable=0`
+#endif
+#ifdef Linux
+ 0.0 `modprobe sctp`
++0.0 `sysctl -w net.sctp.ecn_enable=0`
++0.0 `sysctl -w net.sctp.prsctp_enable=0`
+#endif
+
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 fcntl(3, F_GETFL) = 0x2 (flags O_RDWR)
++0.0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
++0.0 connect(3, ..., ...) = -1 EINPROGRESS (Operation now in progress)
+
++0.0 > sctp: INIT[flgs=0, tag=1, a_rwnd=..., os=..., is=..., tsn=0,
+                  SUPPORTED_ADDRESS_TYPES[types=...]]
++0.0 < sctp: INIT_ACK[flgs=0, tag=3, a_rwnd=1500, os=1, is=1, tsn=3,
+                      STATE_COOKIE[len=4, val=...]]
++0.0 > sctp: COOKIE_ECHO[flgs=0, len=4, val=...]
++0.0 < sctp: COOKIE_ACK[flgs=0]
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
++0.5 < sctp: HEARTBEAT[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]]
++0.0 > sctp: HEARTBEAT_ACK[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]]
+
+//
++1.0 write(3, ..., 1000) = 1000
++0.0 > sctp: DATA[flgs=BE, len=1016, tsn=0, sid=0, ssn=0, ppid=0]
++0.1 < sctp: SACK[flgs=0, cum_tsn=0, a_rwnd=1500, gaps=[], dups=[]]
++1.0 < sctp: DATA[flgs=BE, len=1016, tsn=3, sid=0, ssn=0, ppid=0]
++0.0 read(3, ..., 2000) = 1000
++0.0 > sctp: SACK[flgs=..., cum_tsn=3, a_rwnd=..., gaps=..., dups=...]
+
+// I Bit (1 bit) set by the sender, When the sender can benefit from the corresponding SACK chunk being sent back without any delay. 
++1.0 < sctp: DATA[flgs=IBE, len=1016, tsn=4, sid=0, ssn=1, ppid=0]
++0.0 read(3, ..., 2000) = 1000
++0.0 > sctp: SACK[flgs=0, cum_tsn=4, a_rwnd=..., gaps=..., dups=...]
+
+//
+// Tear down the association
++0.0 close(3) = 0
++0.0 > sctp: SHUTDOWN[flgs=0, cum_tsn=4]
++0.0 < sctp: SHUTDOWN_ACK[flgs=0]
++0.0 > sctp: SHUTDOWN_COMPLETE[flgs=0]

@@ -1,0 +1,93 @@
+// Test Case Title : Non-SCTP-Capable Hosts
+// Test Case Id: T013
+// RFC Ref: 11.4 - Protection of Non-SCTP-Capable Hosts (version 16)
+//
+// The sender of the response chunk MUST NOT send more than one packet containing chunks other than DATA chunks. 
+// This requirement protects the network for triggering a packet burst in response to a single packet.
+//
+
+--tolerance_usecs=75000
+
+#ifdef FreeBSD
+ 0.0 `kldload -n sctp`
++0.0 `sysctl -w net.inet.sctp.ecn_enable=0`
++0.0 `sysctl -w net.inet.sctp.pr_enable=0`
++0.0 `sysctl -w net.inet.sctp.asconf_enable=0`
++0.0 `sysctl -w net.inet.sctp.auth_enable=0`
++0.0 `sysctl -w net.inet.sctp.reconfig_enable=0`
++0.0 `sysctl -w net.inet.sctp.nrsack_enable=0`
++0.0 `sysctl -w net.inet.sctp.pktdrop_enable=0`
+#endif
+#ifdef Linux
+ 0.0 `modprobe sctp`
++0.0 `sysctl -w net.sctp.ecn_enable=0`
++0.0 `sysctl -w net.sctp.prsctp_enable=0`
+#endif
+
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 fcntl(3, F_GETFL) = 0x2 (flags O_RDWR)
++0.0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
++0.0 connect(3, ..., ...) = -1 EINPROGRESS (Operation now in progress)
++0.0 > sctp: INIT[flgs=0, tag=1, a_rwnd=..., os=..., is=..., tsn=1,
+                  SUPPORTED_ADDRESS_TYPES[types=...]]
++0.0 < sctp: INIT_ACK[flgs=0, tag=2, a_rwnd=1500, os=1, is=1, tsn=3,
+                      STATE_COOKIE[len=4, val=...]]
++0.0 > sctp: COOKIE_ECHO[flgs=0, len=4, val=...]
++0.0 < sctp: COOKIE_ACK[flgs=0]
+
+// Test: sender of the response chunk MUST NOT send more than one packet containing chunks other than DATA chunks - Bundling supported.
++0.5 < sctp: HEARTBEAT[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]];
+			 HEARTBEAT[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]];
+			 HEARTBEAT[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]]
++0.0 > sctp: HEARTBEAT_ACK[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]];
+			 HEARTBEAT_ACK[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]];
+			 HEARTBEAT_ACK[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]]
+			 		 
+
+// Test: sender of the response chunk MUST NOT send more than one packet containing chunks other than DATA chunks - Bundling supported.
++0.0 < sctp: HEARTBEAT[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]];
+			 HEARTBEAT[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]];
+			 DATA[flgs=BE, len=1016, tsn=1, sid=0, ssn=0, ppid=0]
++0.0 > sctp: HEARTBEAT_ACK[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]];
+			 HEARTBEAT_ACK[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]];
+             SACK[flgs=..., cum_tsn=2, a_rwnd=..., gaps=..., dups=[1]]
+			 
+
+// Test: multiple DATA chunk with invalid stream identifier
++0.0 < sctp: DATA[flgs=BE, len=1016, tsn=3, sid=255, ssn=0, ppid=0];
+			 DATA[flgs=BE, len=1016, tsn=4, sid=256, ssn=0, ppid=0];
+			 DATA[flgs=BE, len=1016, tsn=5, sid=257, ssn=0, ppid=0]
++0.0 > sctp: ERROR[flgs=0, INVALID_STREAM_IDENTIFIER[sid=255]];
+			 ERROR[flgs=0, INVALID_STREAM_IDENTIFIER[sid=256]];
+			 ERROR[flgs=0, INVALID_STREAM_IDENTIFIER[sid=257]]
++0.2 > sctp: SACK[flgs=..., cum_tsn=5, a_rwnd=..., gaps=..., dups=...]
+
+
+// Test: Bundling with unrecognized chunk.
++0.0 < sctp: HEARTBEAT[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]];
+			 CHUNK[type=0xfe, flgs=0x05, len=5, val=[0x01]];
+			 DATA[flgs=BE, len=1016, tsn=1, sid=0, ssn=0, ppid=0]
++0.0 > sctp: HEARTBEAT_ACK[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]];
+			 ERROR[flgs=0, UNRECOGNIZED_CHUNK_TYPE[chk=CHUNK[type=0xfe, flgs=0x05, len=5, val=[0x01]]]];
+			 SACK[flgs=..., cum_tsn=5, a_rwnd=..., gaps=..., dups=[1]]			 
+			 
+// Test: with multiple control chunks
++0.0 < sctp: HEARTBEAT[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]];
+			 SHUTDOWN[flgs=0, cum_tsn=0] 
+					
++0.0 > sctp: HEARTBEAT_ACK[flgs=0, HEARTBEAT_INFORMATION[len=8, val=...]];
+			 SHUTDOWN_ACK[flgs=0]
+			 
+
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
+
+// 
++0.0 < sctp: SHUTDOWN_COMPLETE[flgs=0]
++0.0 close(3) = 0
+
+
+
+
+
+

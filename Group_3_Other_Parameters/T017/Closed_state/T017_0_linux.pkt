@@ -1,0 +1,44 @@
+// Test Case Title : UNRECOGNIZED PARAMETER - with value
+// Test Case ID: T017_0 (Closed State)
+// RFC Ref no.: 3.3.3.1.2 (Version 8)
+//
+// This parameter is returned to the originator of the INIT chunk when the INIT contains an unrecognized parameter 
+// that has a value that indicates it SHOULD be reported to the sender.
+//
+
+--tolerance_usecs=75000
+
+#ifdef FreeBSD
+ 0.0 `kldload -n sctp`
++0.0 `sysctl -w net.inet.sctp.ecn_enable=0`
++0.0 `sysctl -w net.inet.sctp.pr_enable=0`
++0.0 `sysctl -w net.inet.sctp.asconf_enable=0`
++0.0 `sysctl -w net.inet.sctp.auth_enable=0`
++0.0 `sysctl -w net.inet.sctp.reconfig_enable=0`
++0.0 `sysctl -w net.inet.sctp.nrsack_enable=0`
++0.0 `sysctl -w net.inet.sctp.pktdrop_enable=0`
+#endif
+#ifdef Linux
+ 0.0 `modprobe sctp`
++0.0 `sysctl -w net.sctp.ecn_enable=0`
++0.0 `sysctl -w net.sctp.prsctp_enable=0`
+#endif
+
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 listen(3, 1) = 0
+
+// Test in CLOSED state for a listener:
+// Test: UNRECOGNIZED Parameter with value, it should be reported to the sender.
++0.0 < sctp: INIT[flgs=0, tag=1, a_rwnd=1500, os=1, is=1, tsn=0,
+                  PARAMETER[type=0xc0cc, len=8, val=[0x01, 0x01, 0x01, 0x01]]]
++0.0 > sctp: INIT_ACK[flgs=0, tag=..., a_rwnd=..., os=..., is=..., tsn=...,
+					  STATE_COOKIE[len=..., val=...],
+                      UNRECOGNIZED_PARAMETER[params=[PARAMETER[type=0xc0cc, len=8, val=[0x01, 0x01, 0x01, 0x01]]]]]
+                      
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
+
+//
+// Tear down the association
++0.0 close(3) = 0
+

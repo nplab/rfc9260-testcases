@@ -1,0 +1,62 @@
+// Test Case Title: INIT - Non Zero Verification tag
+// Test Case Id: T012_6 in CLOSED state(NON-ZERO Verification Tag)
+// RFC Ref: 11.3 - SCTP Interactions with Firewalls (Version 2)
+//
+// The receiver of an INIT chunk MUST silently discard the INIT chunk and all further chunks 
+// if the INIT chunk is bundles with other chunks 
+// or the packets has a non zero verification Tag.
+//
+
+--tolerance_usecs=75000
+
+#ifdef FreeBSD
+ 0.0 `kldload -n sctp`
++0.0 `sysctl -w net.inet.sctp.ecn_enable=0`
++0.0 `sysctl -w net.inet.sctp.pr_enable=0`
++0.0 `sysctl -w net.inet.sctp.asconf_enable=0`
++0.0 `sysctl -w net.inet.sctp.auth_enable=0`
++0.0 `sysctl -w net.inet.sctp.reconfig_enable=0`
++0.0 `sysctl -w net.inet.sctp.nrsack_enable=0`
++0.0 `sysctl -w net.inet.sctp.pktdrop_enable=0`
+#endif
+#ifdef Linux
+ 0.0 `modprobe sctp`
++0.0 `sysctl -w net.sctp.ecn_enable=0`
++0.0 `sysctl -w net.sctp.prsctp_enable=0`
+#endif
+
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 listen(3, 1) = 0
+
+// Test in CLOSED state for a listener:
+
+// Test INIT chunk with non-zero verification tag (discard the INIT and all further chunks)
++0.0 < sctp(tag=2): INIT[flgs=0, tag=3, a_rwnd=1500, os=1, is=1, tsn=0]
+
+//Test INIT chunk with non-zero verification tag and a_rwnd < 1500 (discard the INIT and all further chunks)
++0.0 < sctp(tag=2): INIT[flgs=0, tag=3, a_rwnd=1400, os=1, is=1, tsn=0]
+
+//Test INIT chunk with non-zero verification tag and OS = 0 (discard the INIT and all further chunks)
++0.0 < sctp(tag=2): INIT[flgs=0, tag=3, a_rwnd=1500, os=0, is=1, tsn=0]
+
+//Test INIT chunk with non-zero verification tag and IS = 0 (discard the INIT and all further chunks)
++0.0 < sctp(tag=2): INIT[flgs=0, tag=3, a_rwnd=1500, os=1, is=0, tsn=0]
+
+//Test INIT chunk with non-zero verification tag and Initiate Tag = 0 (discard the INIT and all further chunks)
++0.0 < sctp(tag=2): INIT[flgs=0, tag=0, a_rwnd=1500, os=1, is=1, tsn=0]
+
+//Test INIT chunk with non-zero verification tag and OS,IS, Initiate Tag = 0 & a_rwnd < 1500(discard the INIT and all further chunks)
++0.0 < sctp(tag=2): INIT[flgs=0, tag=0, a_rwnd=1400, os=0, is=0, tsn=0]
+
+// To verify sending a new INIT & INIT ACK
++0.0 < sctp: INIT[flgs=0, tag=1, a_rwnd=1500, os=1, is=1, tsn=1]
++0.0 > sctp: INIT_ACK[flgs=..., tag=..., a_rwnd=..., os=..., is=..., tsn=..., ...]
+
+
+// Tear down the association
++0.0 close(3) = 0
+
+
+
+

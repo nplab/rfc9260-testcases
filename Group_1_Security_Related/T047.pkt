@@ -1,0 +1,38 @@
+// Test Case : Normal Establishment of an Association
+// Test Case Id: T047
+// RFC ref: 5.2.2 - Unexpected INIT in States Other than CLOSED, COOKIE-ECHOED, COOKIE WAIT & SHUTDOWN-ACK-SENT (Version 14)
+//
+// COOKIE ECHO chunk that does not pass the integrity check is not considered an 'invalid mandatory parameter' and requires special handling. 
+//
+
+--tolerance_usecs=75000
+
+#ifdef FreeBSD
+0.0 `kldload -n sctp`
++0.0 `sysctl -w net.inet.sctp.ecn_enable=0`
++0.0 `sysctl -w net.inet.sctp.pr_enable=0`
++0.0 `sysctl -w net.inet.sctp.asconf_enable=0`
++0.0 `sysctl -w net.inet.sctp.auth_enable=0`
++0.0 `sysctl -w net.inet.sctp.reconfig_enable=0`
++0.0 `sysctl -w net.inet.sctp.nrsack_enable=0`
++0.0 `sysctl -w net.inet.sctp.pktdrop_enable=0`
+#endif
+#ifdef Linux
+0.0 `modprobe sctp`
++0.0 `sysctl -w net.sctp.ecn_enable=0`
++0.0 `sysctl -w net.sctp.prsctp_enable=0`
+#endif
+
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 fcntl(3, F_GETFL) = 0x2 (flags O_RDWR)
++0.0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
++0.0 bind(3, ..., ...) = 0
++0.0 listen(3, 1) = 0
++0.0 < sctp: INIT[flgs=0, tag=1, a_rwnd=1500, os=1, is=1, tsn=1]
++0.0 > sctp: INIT_ACK[flgs=0, tag=..., a_rwnd=..., os=..., is=..., tsn=3,
+                     STATE_COOKIE[len=..., val=...]]
+// 
+// COOKIE ECHO chunk that does not pass the integrity check is not considered an 'invalid mandatory parameter' and requires special handling
++0.0 < sctp: COOKIE_ECHO[flgs=0, len=8, val=[0x00, 0x01, 0x02, 0x03]]
++0.0 accept(3, ..., ...) = -1 EWOULDBLOCK (Operation would block)
++0.0 close(3) = 0

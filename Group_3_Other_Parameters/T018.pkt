@@ -1,0 +1,158 @@
+// Test Case Title : Stream Parameters -  OS identifier range
+// Test Case ID: T018
+// RFC Ref no.: 5.1.1 - Handle Stream Parameters - (Version 4)
+//
+// After the association is initialized, the valid outbound stream identifier range for either endpoint MUST be 0 to min(local OS, remote MIS) - 1.
+//
+
+--tolerance_usecs=75000
+
+#ifdef FreeBSD
+ 0.0 `kldload -n sctp`
++0.0 `sysctl -w net.inet.sctp.ecn_enable=0`
++0.0 `sysctl -w net.inet.sctp.pr_enable=0`
++0.0 `sysctl -w net.inet.sctp.asconf_enable=0`
++0.0 `sysctl -w net.inet.sctp.auth_enable=0`
++0.0 `sysctl -w net.inet.sctp.reconfig_enable=0`
++0.0 `sysctl -w net.inet.sctp.nrsack_enable=0`
++0.0 `sysctl -w net.inet.sctp.pktdrop_enable=0`
+#endif
+#ifdef Linux
+ 0.0 `modprobe sctp`
++0.0 `sysctl -w net.sctp.ecn_enable=0`
++0.0 `sysctl -w net.sctp.prsctp_enable=0`
+#endif
+
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 fcntl(3, F_GETFL) = 0x2 (flags O_RDWR)
++0.0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
++0.0 setsockopt(3, IPPROTO_SCTP, SCTP_INITMSG, {sinit_num_ostreams=5,
+                                                sinit_max_instreams=1,
+                                                sinit_max_attempts=0,
+                                                sinit_max_init_timeo=0}, 8) = 0
++0.0 connect(3, ..., ...) = -1 EINPROGRESS (Operation now in progress)
+
+// Test: OS identifier range must be 0 to min(OS, remote MIS) - 1.
+// Case: OS > remote MIS
++0.0 > sctp: INIT[flgs=0, tag=1, a_rwnd=..., os=5, is=1, tsn=0,
+                  SUPPORTED_ADDRESS_TYPES[types=...]]
++0.0 < sctp: INIT_ACK[flgs=0, tag=3, a_rwnd=1500, os=1, is=1, tsn=3,
+                      STATE_COOKIE[len=4, val=...]]
++0.0 > sctp: COOKIE_ECHO[flgs=0, len=4, val=...]
++0.0 < sctp: COOKIE_ACK[flgs=0]
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
+
+// Try to send 10 bytes on stream 0.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 0, 0, 0) = 10
++0.0 > sctp: DATA[flgs=BE, len=26, tsn=0, sid=0, ssn=0, ppid=1234]
++0.0 < sctp: SACK[flgs=0, cum_tsn=0, a_rwnd=1500, gaps=[], dups=[]]
+// Try to send 10 bytes on stream 1.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 1, 0, 0) = -1 EINVAL (Invalid parameter)
+
++0.0 close(3) = 0
++0.0 > sctp: SHUTDOWN[flgs=0, cum_tsn=2]
++0.0 < sctp: SHUTDOWN_ACK[flgs=0]
++0.0 > sctp: SHUTDOWN_COMPLETE[flgs=0]
+//
+//
+//
+//
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 fcntl(3, F_GETFL) = 0x2 (flags O_RDWR)
++0.0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
++0.0 setsockopt(3, IPPROTO_SCTP, SCTP_INITMSG, {sinit_num_ostreams=5,
+                                                sinit_max_instreams=1,
+                                                sinit_max_attempts=0,
+                                                sinit_max_init_timeo=0}, 8) = 0
++0.0 connect(3, ..., ...) = -1 EINPROGRESS (Operation now in progress)
+
+// Test: OS identifier range must be 0 to min(OS, remote MIS) - 1.
+// Case: OS = remote MIS
++0.0 > sctp: INIT[flgs=0, tag=1, a_rwnd=..., os=5, is=1, tsn=0,
+                  SUPPORTED_ADDRESS_TYPES[types=...]]
++0.0 < sctp: INIT_ACK[flgs=0, tag=3, a_rwnd=1500, os=1, is=5, tsn=3,
+                      STATE_COOKIE[len=4, val=...]]
++0.0 > sctp: COOKIE_ECHO[flgs=0, len=4, val=...]
++0.0 < sctp: COOKIE_ACK[flgs=0]
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
+
+// Try to send 10 bytes on stream 0.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 0, 0, 0) = 10
++0.0 > sctp: DATA[flgs=BE, len=26, tsn=0, sid=0, ssn=0, ppid=1234]
++0.0 < sctp: SACK[flgs=0, cum_tsn=0, a_rwnd=1500, gaps=[], dups=[]]
+// Try to send 10 bytes on stream 1.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 1, 0, 0) = 10
++0.0 > sctp: DATA[flgs=BE, len=26, tsn=1, sid=1, ssn=0, ppid=1234]
++0.0 < sctp: SACK[flgs=0, cum_tsn=1, a_rwnd=1500, gaps=[], dups=[]]
+// Try to send 10 bytes on stream 2.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 2, 0, 0) = 10
++0.0 > sctp: DATA[flgs=BE, len=26, tsn=2, sid=2, ssn=0, ppid=1234]
++0.0 < sctp: SACK[flgs=0, cum_tsn=2, a_rwnd=1500, gaps=[], dups=[]]
+// Try to send 10 bytes on stream 3.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 3, 0, 0) = 10
++0.0 > sctp: DATA[flgs=BE, len=26, tsn=3, sid=3, ssn=0, ppid=1234]
++0.0 < sctp: SACK[flgs=0, cum_tsn=3, a_rwnd=1500, gaps=[], dups=[]]
+// Try to send 10 bytes on stream 4.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 4, 0, 0) = 10
++0.0 > sctp: DATA[flgs=BE, len=26, tsn=4, sid=4, ssn=0, ppid=1234]
++0.0 < sctp: SACK[flgs=0, cum_tsn=4, a_rwnd=1500, gaps=[], dups=[]]
+// Try to send 10 bytes on stream 5.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 5, 0, 0) = -1 EINVAL (Invalid parameter)
+
++0.0 close(3) = 0
++0.0 > sctp: SHUTDOWN[flgs=0, cum_tsn=2]
++0.0 < sctp: SHUTDOWN_ACK[flgs=0]
++0.0 > sctp: SHUTDOWN_COMPLETE[flgs=0]
+//
+//
+//
+//
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 fcntl(3, F_GETFL) = 0x2 (flags O_RDWR)
++0.0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
++0.0 setsockopt(3, IPPROTO_SCTP, SCTP_INITMSG, {sinit_num_ostreams=5,
+                                                sinit_max_instreams=1,
+                                                sinit_max_attempts=0,
+                                                sinit_max_init_timeo=0}, 8) = 0
++0.0 connect(3, ..., ...) = -1 EINPROGRESS (Operation now in progress)
+
+// Test: OS identifier range must be 0 to min(OS, remote MIS) - 1.
+// Case: OS < remote MIS
++0.0 > sctp: INIT[flgs=0, tag=1, a_rwnd=..., os=5, is=1, tsn=0,
+                  SUPPORTED_ADDRESS_TYPES[types=...]]
++0.0 < sctp: INIT_ACK[flgs=0, tag=3, a_rwnd=1500, os=1, is=10, tsn=3,
+                      STATE_COOKIE[len=4, val=...]]
++0.0 > sctp: COOKIE_ECHO[flgs=0, len=4, val=...]
++0.0 < sctp: COOKIE_ACK[flgs=0]
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
+
+// Try to send 10 bytes on stream 0.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 0, 0, 0) = 10
++0.0 > sctp: DATA[flgs=BE, len=26, tsn=0, sid=0, ssn=0, ppid=1234]
++0.0 < sctp: SACK[flgs=0, cum_tsn=0, a_rwnd=1500, gaps=[], dups=[]]
+// Try to send 10 bytes on stream 1.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 1, 0, 0) = 10
++0.0 > sctp: DATA[flgs=BE, len=26, tsn=1, sid=1, ssn=0, ppid=1234]
++0.0 < sctp: SACK[flgs=0, cum_tsn=1, a_rwnd=1500, gaps=[], dups=[]]
+// Try to send 10 bytes on stream 2.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 2, 0, 0) = 10
++0.0 > sctp: DATA[flgs=BE, len=26, tsn=2, sid=2, ssn=0, ppid=1234]
++0.0 < sctp: SACK[flgs=0, cum_tsn=2, a_rwnd=1500, gaps=[], dups=[]]
+// Try to send 10 bytes on stream 3.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 3, 0, 0) = 10
++0.0 > sctp: DATA[flgs=BE, len=26, tsn=3, sid=3, ssn=0, ppid=1234]
++0.0 < sctp: SACK[flgs=0, cum_tsn=3, a_rwnd=1500, gaps=[], dups=[]]
+// Try to send 10 bytes on stream 4.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 4, 0, 0) = 10
++0.0 > sctp: DATA[flgs=BE, len=26, tsn=4, sid=4, ssn=0, ppid=1234]
++0.0 < sctp: SACK[flgs=0, cum_tsn=4, a_rwnd=1500, gaps=[], dups=[]]
+// Try to send 10 bytes on stream 5.
++0.0 sctp_sendmsg(3, ..., 10, ..., ..., htonl(1234), 0, 5, 0, 0) = -1 EINVAL (Invalid parameter)
+
++0.0 close(3) = 0
++0.0 > sctp: SHUTDOWN[flgs=0, cum_tsn=2]
++0.0 < sctp: SHUTDOWN_ACK[flgs=0]
++0.0 > sctp: SHUTDOWN_COMPLETE[flgs=0]

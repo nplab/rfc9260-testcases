@@ -1,0 +1,50 @@
+// Test Case Title: INIT ACK - A_rwnd & change of state of association
+// Test Case ID: T004
+// RFC Ref: 3.3.3. - Initiation Acknowledgement (INIT ACK) (2) - Version 17
+//
+// A_rwnd: value MUST NOT be smaller than 1500.
+//
+// If an endpoint in the COOKIE-WAIT state receives an INIT ACK chunk
+// with the a_rwnd value set to a value smaller than 1500, it MUST
+// destroy the TCB and SHOULD send an ABORT chunk.  If such an
+// INIT ACK chunk is received in any state other than CLOSED or
+// COOKIE-WAIT, it SHOULD be discarded silently.
+
+--tolerance_usecs=100000
+
+#ifdef FreeBSD
+ 0.0 `kldload -n sctp`
++0.0 `sysctl -w net.inet.sctp.ecn_enable=0`
++0.0 `sysctl -w net.inet.sctp.pr_enable=0`
++0.0 `sysctl -w net.inet.sctp.asconf_enable=0`
++0.0 `sysctl -w net.inet.sctp.auth_enable=0`
++0.0 `sysctl -w net.inet.sctp.reconfig_enable=0`
++0.0 `sysctl -w net.inet.sctp.nrsack_enable=0`
++0.0 `sysctl -w net.inet.sctp.pktdrop_enable=0`
+#endif
+#ifdef Linux
+ 0.0 `modprobe sctp`
++0.0 `sysctl -w net.sctp.ecn_enable=0`
++0.0 `sysctl -w net.sctp.prsctp_enable=0`
+#endif
+
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 fcntl(3, F_GETFL) = 0x2 (flags O_RDWR)
++0.0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
++0.0 connect(3, ..., ...) = -1 EINPROGRESS (Operation now in progress)
+//
+// COOKIE-WAIT state:
+// Test ARWND < 1500; (destroy the TCB and send ABORT).
++0.0 > sctp: INIT[flgs=0, tag=1, a_rwnd=..., os=..., is=..., tsn=0,
+                  SUPPORTED_ADDRESS_TYPES[types=...]]
++0.0 < sctp: INIT_ACK[flgs=0, tag=2, a_rwnd=1300, os=1, is=1, tsn=3,
+                      STATE_COOKIE[len=4, val=...]]
++0.0 > sctp(tag=2): ABORT[flgs=0, INVALID_MANDATORY_PARAMETER[]]
+#ifdef FreeBSD
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [ECONNABORTED], [4]) = 0
+#endif
+#ifdef Linux
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [ECONNREFUSED], [4]) = 0
+#endif
++0.0 close(3) = 0

@@ -1,0 +1,52 @@
+// Test Case Title : INIT_ACK - HOST NAME PARAMETER
+// Test Case ID: T016
+// RFC ref: 3.3.3 - Initiation Acknowledgement (INIT ACK) (2) - (Version 2)
+//
+// INIT ACK chunk MUST NOT contain 'Host Name Parameter' , if contain receiver must send an ABORT with 'unresolvable address'
+// Usage of Host Name parameter is 'deprecated'
+//
+
+--tolerance_usecs=75000
+
+#ifdef FreeBSD
+ 0.0 `kldload -n sctp`
++0.0 `sysctl -w net.inet.sctp.ecn_enable=0`
++0.0 `sysctl -w net.inet.sctp.pr_enable=0`
++0.0 `sysctl -w net.inet.sctp.asconf_enable=0`
++0.0 `sysctl -w net.inet.sctp.auth_enable=0`
++0.0 `sysctl -w net.inet.sctp.reconfig_enable=0`
++0.0 `sysctl -w net.inet.sctp.nrsack_enable=0`
++0.0 `sysctl -w net.inet.sctp.pktdrop_enable=0`
+#endif
+#ifdef Linux
+ 0.0 `modprobe sctp`
++0.0 `sysctl -w net.sctp.ecn_enable=0`
++0.0 `sysctl -w net.sctp.prsctp_enable=0`
+#endif
+
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 fcntl(3, F_GETFL) = 0x2 (flags O_RDWR)
++0.0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
++0.0 connect(3, ..., ...) = -1 EINPROGRESS (Operation now in progress)
+
++0.0 > sctp: INIT[flgs=0, tag=1, a_rwnd=..., os=..., is=..., tsn=0,
+                  SUPPORTED_ADDRESS_TYPES[types=...]]
+
+// Test: HOST NAME Parameter, if contains send ABORT with 'unresolvable address'.
++0.0 < sctp: INIT_ACK[flgs=0, tag=4, a_rwnd=1500, os=1, is=1, tsn=4,
+                      STATE_COOKIE[len=4, val=...], 
+					  HOSTNAME_ADDRESS[addr="www.nokia.com"]]
++0.0 > sctp: ABORT[flgs=0, UNRESOLVABLE_ADDRESS[param=HOSTNAME_ADDRESS[addr="www.nokia.com"]]] 
+
+#ifdef FreeBSD
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [ECONNABORTED], [4]) = 0
+#endif
+#ifdef Linux
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [ECONNREFUSED], [4]) = 0
+#endif
+
+//
+// Tear down the association
++0.0 close(3) = 0
+

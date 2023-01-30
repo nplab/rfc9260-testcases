@@ -1,0 +1,66 @@
+// Test Case Title : INIT - Unexpected INIT in States Other than CLOSED, COOKIE-ECHOED, COOKIE WAIT & SHUTDOWN-ACK-SENT 
+// Test Case ID: T006_1 (SHUTDOWN_PENDING State)
+// RFC Ref: 5.2.2 - INIT - Unexpected INIT in States Other than CLOSED, COOKIE-ECHOED, COOKIE WAIT & SHUTDOWN-ACK-SENT (Version 4)
+//
+// Unless otherwise stated, upon receipt of an unexpected INIT for this association, the endpoint MUST generate an INIT ACK with a state cookie.
+// After sending out the INIT ACK or ABORT, the endpoint MUST take no further actions, 
+// i.e., the existing association, including its current state, and the corresponding TCB MUST NOT be changed.
+//
+
+--tolerance_usecs=75000
+
+#ifdef FreeBSD
+ 0.0 `kldload -n sctp`
++0.0 `sysctl -w net.inet.sctp.ecn_enable=0`
++0.0 `sysctl -w net.inet.sctp.pr_enable=0`
++0.0 `sysctl -w net.inet.sctp.asconf_enable=0`
++0.0 `sysctl -w net.inet.sctp.auth_enable=0`
++0.0 `sysctl -w net.inet.sctp.reconfig_enable=0`
++0.0 `sysctl -w net.inet.sctp.nrsack_enable=0`
++0.0 `sysctl -w net.inet.sctp.pktdrop_enable=0`
+#endif
+#ifdef Linux
+ 0.0 `modprobe sctp`
++0.0 `sysctl -w net.sctp.ecn_enable=0`
++0.0 `sysctl -w net.sctp.prsctp_enable=0`
+#endif
+
++0.0 socket(..., SOCK_STREAM, IPPROTO_SCTP) = 3
++0.0 bind(3, ..., ...) = 0
++0.0 fcntl(3, F_GETFL) = 0x2 (flags O_RDWR)
++0.0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
++0.0 connect(3, ..., ...) = -1 EINPROGRESS (Operation now in progress)
++0.0 > sctp: INIT[flgs=0, tag=1, a_rwnd=..., os=..., is=..., tsn=0, 
+				  SUPPORTED_ADDRESS_TYPES[types=...]]
++0.0 < sctp: INIT_ACK[flgs=0, tag=2, a_rwnd=1500, os=1, is=1, tsn=3,
+					  STATE_COOKIE[len=4, val=...]]
++0.0 > sctp: COOKIE_ECHO[flgs=0, len=4, val=...]
++0.0 < sctp: COOKIE_ACK[flgs=0]
+
++0.0 write(3, ..., 1000) = 1000
++0.0 > sctp: DATA[flgs=BE, len=1016, tsn=0, sid=0, ssn=0, ppid=0]
++0.0 shutdown(3, SHUT_WR) = 0
++0.0 getsockopt(3, IPPROTO_SCTP, SCTP_STATUS, {sstat_assoc_id=...,
+                                               sstat_state=SCTP_SHUTDOWN_PENDING,
+                                               sstat_rwnd=...,
+                                               sstat_unackdata=...,
+                                               sstat_penddata=...,
+                                               sstat_instrms=...,
+                                               sstat_outstrms=...,
+                                               sstat_fragmentation_point=...,
+                                               sstat_primary=...}, [176]) = 0
+
+// Unexpected INIT in SHUTDOWN-PENDING state:
+
++0.0 < sctp: INIT[flgs=0, tag=3, a_rwnd=1500, os=1, is=1, tsn=0]
++0.0 > sctp: INIT_ACK[flgs=0, tag=..., a_rwnd=..., os=..., is=..., tsn=...,
+                      STATE_COOKIE[len=..., val=...]]
++0.0 getsockopt(3, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
+
+//
+// Tear down the association
++0.0 < sctp: SACK[flgs=0, cum_tsn=0, a_rwnd=1500, gaps=[], dups=[]]
++0.0 > sctp: SHUTDOWN[flgs=0, cum_tsn=2]
++0.0 < sctp: SHUTDOWN_ACK[flgs=0]
++0.0 > sctp: SHUTDOWN_COMPLETE[flgs=0]
++0.0 close(3) = 0
